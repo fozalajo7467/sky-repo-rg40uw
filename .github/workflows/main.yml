@@ -1,0 +1,46 @@
+name: Sky Miner Bot
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */5 * * *'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  run-miner:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bot_id: [1, 2, 3, 4, 5]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pip install selenium packaging
+
+      - uses: browser-actions/setup-firefox@v1
+
+      - name: Run bot
+        timeout-minutes: 340
+        env:
+          GH_REPO:   ${{ github.event.repository.name }}
+          MATRIX_ID: ${{ matrix.bot_id }}
+        run: python main.py
+
+      - name: Auto-restart
+        if: always() && matrix.bot_id == 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sleep 10
+          gh workflow run "${{ github.workflow }}" \
+            --repo "${{ github.repository }}" \
+            --ref "${{ github.ref_name }}"
